@@ -124,7 +124,9 @@
         // --- State Management ---
         const generateId = (prefix) => prefix + '_' + Math.random().toString(36).substr(2, 9);
         
-        let state = {
+        const STORAGE_KEY = 'ventureValidatorData';
+        
+        const defaultState = {
             sidebarOpen: true,
             currentView: 'home', // 'home' or 'wizard'
             activeVentureId: null,
@@ -150,6 +152,12 @@
                 }
             ]
         };
+
+        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultState;
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
 
         // --- Core Render Functions ---
         
@@ -182,6 +190,7 @@
         function goToHome() {
             state.currentView = 'home';
             state.activeVentureId = null;
+            saveState();
             document.getElementById('breadcrumb').innerHTML = 'Dashboard';
             renderView();
         }
@@ -189,6 +198,7 @@
         function openWizard(ventureId) {
             state.currentView = 'wizard';
             state.activeVentureId = ventureId;
+            saveState();
             const venture = state.ventures.find(v => v.id === ventureId);
             document.getElementById('breadcrumb').innerHTML = `<span class="text-slate-500 cursor-pointer hover:text-slate-300" onclick="goToHome()">Dashboard</span> <span class="mx-2 text-slate-600">/</span> <span class="text-indigo-400">${venture.name}</span>`;
             renderView();
@@ -227,6 +237,7 @@
                         // Add right above 'Unassigned' folder
                         const newFolder = { id: generateId('f'), name: name.trim(), color: color };
                         state.folders.splice(state.folders.length - 1, 0, newFolder);
+                        saveState();
                         renderSidebar();
                     }
                 }
@@ -244,6 +255,7 @@
                 onConfirm: (newName) => {
                     if (newName && newName.trim()) {
                         f.name = newName.trim();
+                        saveState();
                         renderSidebar();
                         if(state.currentView === 'wizard') renderView(); // Update headers if open
                     }
@@ -268,6 +280,7 @@
                     });
                     // Remove folder
                     state.folders = state.folders.filter(f => f.id !== id);
+                    saveState();
                     renderSidebar();
                     if (state.currentView === 'wizard' || state.currentView === 'home') renderView();
                 }
@@ -331,48 +344,6 @@
             });
             container.innerHTML = html;
             setupSidebarDragAndDrop();
-        }
-
-        function createNewFolder() {
-            const name = prompt('Enter new folder name:');
-            if (name && name.trim()) {
-                const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-emerald-500', 'bg-cyan-500', 'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500'];
-                const color = colors[Math.floor(Math.random() * colors.length)];
-                
-                // Add right above 'Unassigned' folder
-                const newFolder = { id: generateId('f'), name: name.trim(), color: color };
-                state.folders.splice(state.folders.length - 1, 0, newFolder);
-                renderSidebar();
-            }
-        }
-
-        function promptRenameFolder(id) {
-            const f = state.folders.find(x => x.id === id);
-            if (!f || f.id === 'f_unassigned') return;
-            
-            const newName = prompt("Rename folder:", f.name);
-            if (newName && newName.trim()) {
-                f.name = newName.trim();
-                renderSidebar();
-                if(state.currentView === 'wizard') renderView(); // Update headers if open
-            }
-        }
-
-        function deleteFolder(id) {
-            if (id === 'f_unassigned') return;
-            
-            if (confirm("Delete this folder? All ventures inside will be moved to the 'Unassigned' folder.")) {
-                // Move ventures to unassigned
-                state.ventures.forEach(v => {
-                    if (v.folderId === id) {
-                        v.folderId = 'f_unassigned';
-                    }
-                });
-                // Remove folder
-                state.folders = state.folders.filter(f => f.id !== id);
-                renderSidebar();
-                if (state.currentView === 'wizard' || state.currentView === 'home') renderView();
-            }
         }
 
         // --- Dashboard / Kanban Logic ---
@@ -504,6 +475,7 @@
             };
             
             state.ventures.unshift(newV);
+            saveState();
             renderView();
         }
 
@@ -524,6 +496,7 @@
                             audience: '', outcome: name.trim(), classification: '', context: '', frequency: '', willingnessToPay: '', abilityToPay: ''
                         };
                         state.ventures.unshift(newV);
+                        saveState();
                         openWizard(newV.id);
                     }
                 }
@@ -539,6 +512,7 @@
                 onConfirm: (newName) => {
                     if (newName && newName.trim()) {
                         v.name = newName.trim();
+                        saveState();
                         renderSidebar(); // Update sidebar name
                         renderView();    // Update board/wizard name
                     }
@@ -554,6 +528,7 @@
                 confirmText: 'Delete',
                 onConfirm: () => {
                     state.ventures = state.ventures.filter(v => v.id !== id);
+                    saveState();
                     renderSidebar();
                     if(state.activeVentureId === id) {
                         goToHome();
@@ -574,6 +549,7 @@
                 onConfirm: (val) => {
                     if (val !== null) {
                         v.scopes = val.split(',').map(s => s.trim()).filter(Boolean);
+                        saveState();
                         renderView();
                     }
                 }
@@ -616,6 +592,7 @@
                         const venture = state.ventures.find(v => v.id === draggedVentureId);
                         if (venture && venture.status !== newStatus) {
                             venture.status = newStatus;
+                            saveState();
                             renderView();
                         }
                     }
@@ -655,6 +632,7 @@
                         const venture = state.ventures.find(v => v.id === draggedVentureId);
                         if (venture && venture.folderId !== newFolderId) {
                             venture.folderId = newFolderId;
+                            saveState();
                             renderSidebar();
                             if(state.currentView === 'home') renderView();
                         }
@@ -786,6 +764,7 @@
             const v = state.ventures.find(x => x.id === state.activeVentureId);
             if (v) {
                 v[field] = value;
+                saveState();
                 renderView(); // Re-render to show active states
             }
         }
